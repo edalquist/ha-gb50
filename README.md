@@ -1,0 +1,117 @@
+# Mitsubishi GB-50 / AG-150 / G-50 Home Assistant Integration
+
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/default)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+A high-performance, asynchronous Home Assistant custom component for **Mitsubishi Electric GB-50**, **AG-150**, and **G-50** centralized HVAC controllers. 
+
+This integration connects directly to the local [`gb50-web-proxy`](https://github.com/edalquist/gb50-web-proxy) REST and WebSocket APIs using an **API Key**. This architecture ensures that **Home Assistant and the Web UI share a single multiplexed connection** to the physical controller hardware, preventing controller CPU saturation, session drops, and polling conflicts.
+
+---
+
+## Key Highlights
+
+* **100% Dynamic Discovery (Zero Hardcoded Assumptions)**:
+  * Automatically discovers all connected hardware groups (from 1 to 50 zones).
+  * Dynamically maps equipment types by hardware model:
+    * `ModelType.IC` (Indoor Air Conditioners) $\rightarrow$ **`climate`** entities
+    * `ModelType.LC` (LOSSNAY Energy Recovery Ventilators) $\rightarrow$ **`fan`** entities
+    * `ModelType.PLC` (Auxiliary Relays / Pumps) $\rightarrow$ **`switch`** entities
+  * Dynamically queries hardware capabilities per unit: supported modes, temperature ranges, fan speed stages (2 or 4 speeds), and motorized swing louvers.
+* **Instantaneous WebSocket Push Telemetry (`IoT: local_push`)**:
+  * Real-time state updates are pushed over a persistent WebSocket connection (`/api/v1/ws`).
+  * Changes made from physical wall remotes or the Web UI reflect in Home Assistant within sub-seconds without polling lag.
+* **Shared Connection to Hardware**:
+  * Home Assistant communicates with `gb50-web-proxy` on `localhost`.
+  * The proxy maintains the single dedicated connection to the Mitsubishi controller (`10.1.0.90`).
+* **Maintenance & Diagnostic Entities**:
+  * Dirty filter warning alerts (`binary_sensor`) with one-click filter sign reset buttons (`button`).
+  * Unit malfunction diagnostic alarms (`binary_sensor`) and active Mitsubishi error codes (`sensor`).
+  * Whole-facility scene triggers: *All Units OFF*, *All Units ON*, *Occupied*, *Unoccupied*.
+
+---
+
+## Supported Entities Matrix
+
+| Platform | Discovered Entities | Features & Attributes |
+| :--- | :--- | :--- |
+| **`climate`** | One per Indoor Unit (IC) | Target Temp, Current Room Temp, Modes (Off, Heat, Cool, Auto, Dry, Fan), Fan Speeds (Auto, Low, Mid2, Mid1, High), Swing Louver Positions (Auto, Horizontal, Mid1, Mid2, Vertical, Swing) |
+| **`fan`** | One per LOSSNAY Unit (LC) | Power (On/Off), Speed (Low/High), Preset Modes (`LC_AUTO`, `BYPASS`, `HEATRECOVERY`) |
+| **`switch`** | One per General Equipment Relay | On/Off binary state control |
+| **`binary_sensor`** | Filter Dirty, Unit Alarm, System Connection | Filter sign alert (`problem`), hardware fault (`problem`), central controller connectivity |
+| **`button`** | Filter Reset, Facility Presets | One-click filter timer reset, *All Units OFF*, *All Units ON*, *Occupied*, *Unoccupied* |
+| **`sensor`** | Room Temperature, Error Code, Firmware | Inlet temperature measurement, 4-digit diagnostic code, controller firmware version |
+
+---
+
+## Installation via HACS
+
+1. Open **Home Assistant** $\rightarrow$ **HACS** $\rightarrow$ **Integrations**.
+2. Click the three dots in the top right corner and select **Custom repositories**.
+3. Enter the repository URL: `https://github.com/edalquist/ha-gb50` (or your local repo path).
+4. Select category: **Integration**.
+5. Click **Add**, find **Mitsubishi GB-50 HVAC**, and click **Download**.
+6. Restart Home Assistant.
+
+### Manual Installation
+Copy the `custom_components/gb50` directory into your Home Assistant `<config_dir>/custom_components/` folder and restart Home Assistant.
+
+---
+
+## Configuration
+
+1. In Home Assistant, navigate to **Settings** $\rightarrow$ **Devices & Services** $\rightarrow$ **Add Integration**.
+2. Search for **Mitsubishi GB-50**.
+3. Enter your connection settings:
+   * **Host**: `127.0.0.1` (or your proxy's LAN IP / hostname)
+   * **Port**: `8080` (or `80`)
+   * **API Key**: The API key configured in `GB50_API_KEY` on `gb50-web-proxy`
+   * **Use SSL**: Enable if proxy is behind HTTPS/WSS reverse proxy
+4. Click **Submit**. Home Assistant will query controller information, register the parent controller device, and dynamically discover all indoor units and ventilators.
+
+---
+
+## Co-Location Deployment (Same Host as Web UI)
+
+When running both Home Assistant and `gb50-web-proxy` on the same machine (e.g. Dell Wyse 5070 or Debian mini PC):
+
+```
++---------------------------------------------------------------------------------+
+|                                 Single PC / Server                              |
+|                                                                                 |
+|   +------------------------------------+    +-------------------------------+   |
+|   |         Home Assistant             |    |        Modern Web UI          |   |
+|   |          (Port 8123)               |    |      (Browser or Kiosk)       |   |
+|   +-----------------+------------------+    +---------------+---------------+   |
+|                     |                                       |                   |
+|                     | REST + WebSocket (X-API-Key)          | REST + WebSocket  |
+|                     v                                       v                   |
+|   +-------------------------------------------------------------------------+   |
+|   |                      gb50-web-proxy Service (Port 8080)                 |   |
+|   |  - StateManager: single background polling loop (3s cadence)            |   |
+|   +-------------------------------------+-----------------------------------+   |
++-----------------------------------------|---------------------------------------+
+                                          |
+                                          | Single HTTP connection to hardware
+                                          v (10.1.0.90/servlet/MIMEReceiveServlet)
+                     +-----------------------------------------+
+                     |    Mitsubishi GB-50ADA-A Controller     |
+                     +-----------------------------------------+
+```
+
+### Embedding the Web UI in Home Assistant
+To view the custom church floor dashboard directly from the Home Assistant sidebar, add an `iframe_panel` to `configuration.yaml`:
+
+```yaml
+panel_iframe:
+  church_hvac:
+    title: "Church HVAC Kiosk"
+    icon: "mdi:hvac"
+    url: "http://church-ac.local:8080/"
+```
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.

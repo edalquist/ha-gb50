@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ha-gb50"
+version = "1.0.0"
+description = "Home Assistant custom integration for Mitsubishi GB-50 / AG-150 / G-50 HVAC controllers via REST & WebSocket Proxy"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.9.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --asyncio-mode=auto"
+testpaths = ["tests"]
+pythonpath = ["custom_components"]

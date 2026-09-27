@@ -1,0 +1,12 @@
+{
+  "domain": "gb50",
+  "name": "Mitsubishi GB-50 HVAC",
+  "codeowners": ["@edalquist"],
+  "config_flow": true,
+  "documentation": "https://github.com/edalquist/ha-gb50",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/edalquist/ha-gb50/issues",
+  "requirements": ["aiohttp>=3.9.0"],
+  "version": "1.0.0"
+}
